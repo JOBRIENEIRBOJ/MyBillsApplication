@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MyBills - Bill Tracker</title>
+    <meta name="theme-color" content="#2563EB">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MyBills">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input, button { -webkit-user-select: text; user-select: text; }
+        .btn-touch { min-height: 44px; min-width: 44px; }
+        .safe-area { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-gray-50 safe-area">
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        function MyBills() {
+            const [bills, setBills] = React.useState([
+                { id: 1, label: 'Electric', amount: 120.50, dueDate: '2025-08-28', isPaid: false },
+                { id: 2, label: 'Internet', amount: 79.99, dueDate: '2025-08-30', isPaid: true },
+                { id: 3, label: 'Rent', amount: 1200.00, dueDate: '2025-09-01', isPaid: false }
+            ]);
+
+            const [isAddingBill, setIsAddingBill] = React.useState(false);
+            const [editingBill, setEditingBill] = React.useState(null);
+            const [newBill, setNewBill] = React.useState({ label: '', amount: '', dueDate: '' });
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            function getBillStatus(dueDate, isPaid) {
+                const due = new Date(dueDate);
+                due.setHours(0, 0, 0, 0);
+                if (isPaid) return 'paid';
+                if (due < today) return 'overdue';
+                return 'upcoming';
+            }
+
+            function getStatusColor(status) {
+                if (status === 'paid') return 'bg-green-50 border-green-200';
+                if (status === 'overdue') return 'bg-red-50 border-red-200';
+                if (status === 'upcoming') return 'bg-blue-50 border-blue-200';
+                return 'bg-gray-50 border-gray-200';
+            }
+
+            function addBill() {
+                if (newBill.label && newBill.amount && newBill.dueDate) {
+                    const bill = {
+                        id: Date.now(),
+                        label: newBill.label,
+                        amount: parseFloat(newBill.amount),
+                        dueDate: newBill.dueDate,
+                        isPaid: false
+                    };
+                    setBills([...bills, bill]);
+                    setNewBill({ label: '', amount: '', dueDate: '' });
+                    setIsAddingBill(false);
+                }
+            }
+
+            function deleteBill(id) {
+                setBills(bills.filter(bill => bill.id !== id));
+            }
+
+            function togglePaid(id) {
+                setBills(bills.map(bill => 
+                    bill.id === id ? { ...bill, isPaid: !bill.isPaid } : bill
+                ));
+            }
+
+            function startEdit(bill) {
+                setEditingBill(bill.id);
+                setNewBill({
+                    label: bill.label,
+                    amount: bill.amount.toString(),
+                    dueDate: bill.dueDate
+                });
+            }
+
+            function saveEdit() {
+                if (newBill.label && newBill.amount && newBill.dueDate) {
+                    setBills(bills.map(bill => 
+                        bill.id === editingBill ? {
+                            ...bill,
+                            label: newBill.label,
+                            amount: parseFloat(newBill.amount),
+                            dueDate: newBill.dueDate
+                        } : bill
+                    ));
+                    setEditingBill(null);
+                    setNewBill({ label: '', amount: '', dueDate: '' });
+                }
+            }
+
+            function cancelEdit() {
+                setEditingBill(null);
+                setIsAddingBill(false);
+                setNewBill({ label: '', amount: '', dueDate: '' });
+            }
+
+            function formatDate(dateString) {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            }
+
+            function getTotals() {
+                const paid = bills.filter(bill => bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0);
+                const upcoming = bills.filter(bill => !bill.isPaid).reduce((sum, bill) => sum + bill.amount, 0);
+                const overdue = bills.filter(bill => getBillStatus(bill.dueDate, bill.isPaid) === 'overdue').reduce((sum, bill) => sum + bill.amount, 0);
+                return { paid, upcoming, overdue };
+            }
+
+            const totals = getTotals();
+
+            React.useEffect(() => {
+                // PWA Setup
+                const manifest = {
+                    name: 'MyBills - Bill Tracker',
+                    short_name: 'MyBills',
+                    description: 'Simple bill tracking app for managing recurring payments',
+                    start_url: '/',
+                    display: 'standalone',
+                    background_color: '#ffffff',
+                    theme_color: '#2563EB',
+                    icons: [{
+                        src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI1NjNFQiIgcng9IjY0Ii8+PHBhdGggZD0iTTEyOCAxNjBoMjU2djMySDE0NHptMCA2NGgyNTZ2MzJIMTI4em0wIDY0aDE5MnYzMkgxMjh6IiBmaWxsPSJ3aGl0ZSIvPjxjaXJjbGUgY3g9IjM4NCIgY3k9IjI4OCIgcj0iMTYiIGZpbGw9IndoaXRlIi8+PHRleHQgeD0iMjU2IiB5PSI0MDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IndoaXRlIiBmb250LXNpemU9IjQ4IiBmb250LWZhbWlseT0iQXJpYWwiPiQ8L3RleHQ+PC9zdmc+',
+                        sizes: '512x512',
+                        type: 'image/svg+xml'
+                    }]
+                };
+
+                const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+                const manifestUrl = URL.createObjectURL(manifestBlob);
+                
+                const link = document.createElement('link');
+                link.rel = 'manifest';
+                link.href = manifestUrl;
+                document.head.appendChild(link);
+
+                if ('serviceWorker' in navigator) {
+                    const swCode = `
+                        const CACHE_NAME = 'mybills-v1';
+                        self.addEventListener('install', event => { self.skipWaiting(); });
+                        self.addEventListener('activate', event => { self.clients.claim(); });
+                        self.addEventListener('fetch', event => {
+                            event.respondWith(
+                                caches.match(event.request).then(response => {
+                                    return response || fetch(event.request);
+                                })
+                            );
+                        });
+                    `;
+                    
+                    const blob = new Blob([swCode], { type: 'application/javascript' });
+                    const swUrl = URL.createObjectURL(blob);
+                    
+                    navigator.serviceWorker.register(swUrl);
+                }
+            }, []);
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="max-w-4xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">MyBills</h1>
+                            <p className="text-gray-600">Track your recurring bills and stay on top of payments</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-green-600 text-sm font-medium">Paid</p>
+                                            <p className="text-2xl font-bold text-green-700">${totals.paid.toFixed(2)}</p>
+                                        </div>
+                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                                            <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-blue-600 text-sm font-medium">Upcoming</p>
+                                            <p className="text-2xl font-bold text-blue-700">${totals.upcoming.toFixed(2)}</p>
+                                        </div>
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-red-600 text-sm font-medium">Overdue</p>
+                                            <p className="text-2xl font-bold text-red-700">${totals.overdue.toFixed(2)}</p>
+                                        </div>
+                                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                                            <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <button
+                                onClick={() => setIsAddingBill(true)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center gap-2 transition-colors btn-touch font-medium w-full md:w-auto justify-center"
+                            >
+                                <span className="text-xl">+</span>
+                                Add New Bill
+                            </button>
+                        </div>
+
+                        {(isAddingBill || editingBill) && (
+                            <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border-l-4 border-blue-500">
+                                <h3 className="text-lg font-semibold mb-4">
+                                    {editingBill ? 'Edit Bill' : 'Add New Bill'}
+                                </h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Bill Name</label>
+                                        <input
+                                            type="text"
+                                            value={newBill.label}
+                                            onChange={(e) => setNewBill({ ...newBill, label: e.target.value })}
+                                            placeholder="e.g., Electric"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={newBill.amount}
+                                            onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                                            placeholder="0.00"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                                        <input
+                                            type="date"
+                                            value={newBill.dueDate}
+                                            onChange={(e) => setNewBill({ ...newBill, dueDate: e.target.value })}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex gap-3 mt-6">
+                                    <button
+                                        onClick={editingBill ? saveEdit : addBill}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors btn-touch flex-1 font-medium"
+                                    >
+                                        {editingBill ? 'Save Changes' : 'Add Bill'}
+                                    </button>
+                                    <button
+                                        onClick={cancelEdit}
+                                        className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-3 rounded-lg transition-colors btn-touch flex-1 font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            {bills.length === 0 ? (
+                                <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                                    <p className="text-gray-500">No bills added yet. Click "Add New Bill" to get started!</p>
+                                </div>
+                            ) : (
+                                bills.map((bill) => {
+                                    const status = getBillStatus(bill.dueDate, bill.isPaid);
+                                    return (
+                                        <div
+                                            key={bill.id}
+                                            className={`bg-white rounded-lg shadow-sm p-4 border-l-4 ${
+                                                status === 'paid' ? 'border-green-500' : 
+                                                status === 'overdue' ? 'border-red-500' : 
+                                                'border-blue-500'
+                                            } ${getStatusColor(status)}`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={bill.isPaid}
+                                                        onChange={() => togglePaid(bill.id)}
+                                                        className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500 btn-touch"
+                                                    />
+                                                    <div className="flex items-center gap-4 flex-1 flex-wrap sm:gap-6">
+                                                        <h3 className={`text-lg font-semibold ${bill.isPaid ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                                                            {bill.label}
+                                                        </h3>
+                                                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                                                            <span className="text-base">$</span>
+                                                            <span className="font-medium">${bill.amount.toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-sm text-gray-600">
+                                                            <span className="text-base">📅</span>
+                                                            <span>Due {formatDate(bill.dueDate)}</span>
+                                                        </div>
+                                                        {status === 'overdue' && (
+                                                            <div className="px-2 py-1 rounded-full text-xs font-medium text-red-600">
+                                                                ⚠ Overdue
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 ml-4">
+                                                    <button
+                                                        onClick={() => startEdit(bill)}
+                                                        className="p-3 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors btn-touch"
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteBill(bill.id)}
+                                                        className="p-3 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors btn-touch"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<MyBills />, document.getElementById('app'));
+    </script>
+</body>
+</html>
